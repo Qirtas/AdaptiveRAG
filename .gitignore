@@ -1,0 +1,17 @@
+.DS_Store
+__pycache__/
+*.pyc
+.idea/
+.vscode/
+RAG/ProcessedDocuments/
+*.sqlite3
+*.pkl
+*.sqlite3
+*.log
+tests/test_output_embeddings.pkl
+tests/test_chroma_db/
+# Ignore Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd

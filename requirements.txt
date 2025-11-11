@@ -1,0 +1,9 @@
+matplotlib
+pandas
+langchain
+langchain-community
+chromadb
+sentence-transformers
+anthropic
+openai
+fastapi
