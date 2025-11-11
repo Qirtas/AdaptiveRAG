@@ -248,7 +248,7 @@ final_docs = retriever.step3_adaptive_selection(reranked, query)
 
 docs_for_llm = _unwrap_docs(final_docs)
 provider = "claude"
-llm = build_llm(provider=provider, api_key="")
+llm = build_llm(provider=provider, api_key="") # Add key here
 
 result = adaptive_rag_with_validation(
     query=query,
