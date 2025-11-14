@@ -1,0 +1,408 @@
+# Core Business/Financial Terms
+CAPEX
+OPEX
+ROI
+Return on Investment
+IRR
+Internal Rate of Return
+NPV
+Net Present Value
+Revenue Growth
+Cost Management
+Profitability
+Budget
+Economic Efficiency
+Business Criticality
+
+# BSC Terms
+BSC
+Balanced Scorecard
+Financial Perspective
+Customer Perspective
+Internal Processes Perspective
+Learning and Growth Perspective
+bsc_family
+bsc_subfamilies
+
+# Data Valuation & Monetization Terms
+Data Valuation
+Data Valuation Techniques
+Data Monetization
+Data-as-a-Service
+DaaS
+Information-as-a-Service
+# Removed: IaaS (conflicts with "is as")
+Insights-as-a-Service
+Answers-as-a-Service
+AaaS
+Data Bartering
+Data Platform Operator
+Data Platform Refiner
+Servitization
+Data Wrapping
+Share-for-free
+Freemium
+Leave-One-Out
+LOO
+Node Value
+# Removed: NV (too short, conflicts with common words)
+Decision-Based Valuation
+DBV
+Shapley
+Shapley Fairness
+Payment-Accuracy Tradeoff
+Open Data Barometer
+ODB
+Location Yardstick Score
+Additional Information Value
+
+# Data Quality Metrics
+Data Quality
+Accuracy
+Precision
+Completeness
+Consistency
+Timeliness
+Relevance
+Reliability
+Integrity
+Plausibility
+Credibility
+Believability
+Objectivity
+Accessibility
+Availability
+Retrievability
+FAIRness
+FAIRness Score
+FAIR principles
+Entropy
+Shannon's Entropy
+Information Entropy
+Joint Entropy
+Individual Entropy
+Conditional Entropy
+Information Score
+Information Content
+Heterogeneity
+Granularity
+Abundance
+Age of Information
+Data Creation
+Time Index
+Format Compliance
+Codification
+Conformity
+Conformity Rate
+AFDL
+Annual Fraction of Data Loss
+EAFDL
+
+# Data Governance & Compliance Terms
+Data Governance
+Data Governance and Compliance
+Privacy Budget
+Inferential Privacy
+Differential Privacy
+Epsilon
+Licensing
+License Compliance
+Free License
+Licensing Restrictions
+Ownership
+Service Agreement
+Policy
+Number of Sensitive Fields
+Data Prevention
+Data Source Corroboration
+Openness
+Sharing
+# Removed: NIG (too short)
+
+# Operational Efficiency Metrics
+Operational Efficiency
+Latency
+Response Time
+Elapsed Time
+Throughput
+Bandwidth
+Cache Size
+Access Cost
+Bandwidth Cost
+Availability
+System Robustness
+Fault Tolerance
+Backup
+System Backup
+Recovery Capabilities
+Data Redundancy
+Reduction
+Adaptability
+Versatility
+Flexibility
+Scalability
+Extensibility
+Interoperability
+Compatibility
+Integration Capabilities
+Format
+Error Rate
+Error Ratio
+Error Count
+Failure Rate
+Trouble Tickets
+Interserver Error Rate
+Uplink/Downlink Error Rate
+Access Frequency
+Arrival Rate
+Access Interval
+Number of Accesses
+Usage over Time
+User Frequency
+User Count
+Concurrent Users
+Hop Distance
+Uplink/Downlink Hop Distance
+UDHD
+Interserver Hop Distance
+ISHD
+Uplink/Downlink Communication Latency
+UDCL
+Interserver Communication Latency
+Database Access Latency
+Transaction Finality Time
+Encryption Time
+# Removed: ET (conflicts with "et")
+Decryption Time
+# Removed: DT (too short)
+Operation Cost
+Execution Cost
+
+# Energy & Infrastructure Metrics
+Energy Efficiency
+Power Usage Effectiveness
+PUE
+Data Center Infrastructure Efficiency
+DCiE
+Power to Performance Effectiveness
+PPE
+Data Centre Performance per Energy
+DPPE
+Data Center Energy Productivity
+DCEP
+DCeP
+Communication Network Energy Efficiency
+CNEE
+Network Power Usage Effectiveness
+NPUE
+Energy Proportionality Coefficient
+EPC
+Total Energy Usage Effectiveness
+Data Center Efficiency
+DCE
+Total Equipment Utilization
+TEU
+IT Equipment Utilization
+ITEU
+IT Equipment Energy Efficiency
+ITEE
+IT Power Usage Effectiveness
+ITUE
+Energy Reuse Fraction
+ERF
+Energy Reuse Effectiveness
+Power Density Efficiency
+PDE
+Water Usage Effectiveness
+WUE
+Energy Expenses
+EES
+Data Center Productivity
+DCP
+Compute Power Efficiency
+CPE
+Green Energy Coefficient
+GEC
+Performance per Watt
+PpW
+Space, Wattage, and Performance
+SWaP
+Data Center Performance Efficiency
+DCPE
+AEUF
+Data Center Lighting Density
+DCLD
+Lighting Power Density
+LPD
+Corporate Average Data Center Efficiency
+CADE
+Airflow Efficiency
+Cooling System Efficiency
+DCCSE
+Data Centre Cooling System Efficiency
+Carbon Usage Effectiveness
+CUE
+Recirculation Index
+RCI
+Capture Index
+# Removed: CI (conflicts with common words)
+Availability, Capacity, and Efficiency
+Energy Data Center
+EDC
+Renewable Energy Factor
+REF
+On-site Energy Fraction
+OEF
+On-site Energy Matching
+OEM
+HVAC
+Heating, Ventilation, and Air Conditioning
+Thermal Management
+Air Management
+Traffic Energy
+Management and Monitoring Traffic Energy
+MMTE
+Traffic Ratio
+Management and Monitoring Traffic Ratio
+Internal Traffic
+External Traffic
+
+# Customer & Market Terms
+Customer Satisfaction
+Customer Retention
+Customer Acquisition
+Customer Needs and Satisfaction
+Market Share
+Market Penetration
+Adoption Rate
+User Experience
+Usability
+Learnability
+Navigation
+Search Functionality
+Link
+
+# Innovation & Learning Terms
+Learning and Growth
+Innovation and Growth
+Innovation Processes
+Employee Skills
+Employee Competencies
+Employee Satisfaction
+Employee Retention
+Training and Development
+Organizational Culture
+Knowledge Management
+Continuous Improvement
+Technology and Infrastructure
+R&D
+Research and Development
+Information Diffusion
+Data Distribution
+Information Distribution
+Lifecycle
+Shelf Life of Data
+
+# Criteria Terms
+Costs
+Quality
+Productivity
+Security
+Customer Satisfaction
+Learning and Growth
+Employee Satisfaction
+
+# Technical/System Terms
+Dataset
+Datasets
+Metadata
+Schema
+Vectorstore
+Vector Database
+Chroma
+ChromaDB
+Embeddings
+LLM
+Large Language Model
+RAG
+Retrieval Augmented Generation
+Semantic Search
+Cosine Similarity
+Similarity Threshold
+Data Pipeline
+Data Lake
+Data Warehouse
+ETL
+Extract Transform Load
+API
+REST API
+Cloud Computing
+Edge Computing
+IoT
+Internet of Things
+Geodistributed
+Multi-tenancy
+Virtual Machine
+Container
+Kubernetes
+Microservices
+Load Balancing
+Fault Tolerance
+High Availability
+Disaster Recovery
+SLA
+Service Level Agreement
+KPI
+Key Performance Indicator
+Metrics
+
+# Specific Methodology Terms
+Berners-Lee
+Linked Data
+Linked Data Principles
+Electronic Data Interchange
+EDI
+Point-of-Sale
+Supply Chain
+Value Chain
+Digital Transformation
+Data-Driven
+Data Density
+Critical Mass
+Transaction Platform
+Innovation Platform
+Microsoft Azure
+AWS
+Amazon Web Services
+Google Cloud Platform
+GCP
+
+# Common Misspellings/Variations
+datamite
+DataMite
+Datamite
+data mite
+accessability
+acessibility
+monetisation
+monetization
+optimisation
+optimization
+realtime
+real-time
+real time
+lifecycle
+life cycle
+life-cycle
+dataset
+data set
+data-set
+metadata
+meta data
+meta-data
+preprocessing
+pre-processing
+pre processing
+interoperability
+inter-operability
+inter operability

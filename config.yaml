@@ -1,0 +1,43 @@
+# --- LLM settings ---
+llm:
+  provider: "deepseek"
+
+  claude:
+    model: "claude-3-5-sonnet-20241022"
+    api_key: ""
+
+  deepseek:
+    model: "deepseek/deepseek-chat-v3-0324:free"
+    api_key: ""
+    base_url: "https://openrouter.ai/api/v1"
+
+  local:
+    base_url: "http://143.239.81.217:6010/generate"
+    timeout_s: 60
+    auth_header: null
+
+spell_check:
+  enabled: true
+  use_variants: true  # Use multiple query variants
+  max_edit_distance: 3
+  confidence_threshold: 0.7  # Minimum confidence for corrections
+  custom_terms_path: "datamite_terms.txt"
+
+# --- Vector Store settings ---
+vector_store:
+  persist_directory: "RAG/ProcessedDocuments/chroma_db"
+  model_name: "all-MiniLM-L6-v2"
+  force_rebuild: false  # Set to true to force rebuild even if DB exists
+
+# --- CSV File paths ---
+csv_files:
+  KPIs: "RAG/Content/ProcessedFiles/clean_KPIs.csv"
+  Objectives: "RAG/Content/ProcessedFiles/clean_Objectives.csv"
+  BSC_families: "RAG/Content/ProcessedFiles/clean_BSC_families.csv"
+  BSC_subfamilies: "RAG/Content/ProcessedFiles/clean_BSC_subfamilies.csv"
+  Criteria: "RAG/Content/ProcessedFiles/clean_Criteria.csv"
+
+# --- Retriever settings ---
+retriever:
+  k_init: 30
+  pool_cap: 20

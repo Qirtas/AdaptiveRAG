@@ -10,10 +10,12 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import yaml
 from langchain.docstore.document import Document
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from RAG.Retrieval.adaptive_retriever import AdaptiveRetriever
+from RAG.Retrieval.spell_checker import process_user_query
 from RAG.Evaluation.retriever_evaluation import (collect_scores,
                                                  load_questions,
                                                  summarize_and_plot)
@@ -44,9 +46,11 @@ from RAG.Retrieval.retriever import (get_retrieval_results,
 from RAG.Retrieval.adaptive_validate import adaptive_rag_with_validation
 from RAG.Retrieval.query_decomposition import detect_multi_question, process_query_with_decomposition, print_decomposed_results
 
+
 def run_index(persist_dir: str):
     """
     Full indexing pipeline: preprocess -> ingest -> embeddings -> vector DB.
+    Returns the created vectorstore.
     """
     # 1) Preprocess CSVs
     output_dir = "RAG/Content/ProcessedFiles"
@@ -58,34 +62,62 @@ def run_index(persist_dir: str):
     # 3) Generate embeddings
     generate_embeddings()
 
-    # 4) Create/update Chroma vector DB
-    _ = create_vectorstore()
+    # 4) Create/update Chroma vector DB and return it
+    vectorstore = create_vectorstore()
     logging.info(f"Index build complete. Vector DB at: {persist_dir}")
 
-def _unwrap_docs(items):
-    """Make sure we pass a List[Document] to the LLM."""
-    out = []
-    for x in items:
-        if hasattr(x, "page_content"):                # LangChain Document
-            out.append(x)
-        elif isinstance(x, tuple) and x:              # (Document, score) or similar
-            out.append(x[0])
-        elif isinstance(x, dict):                     # {"doc": Document, ...} or variants
-            if "doc" in x and hasattr(x["doc"], "page_content"):
-                out.append(x["doc"])
-            elif "document" in x and hasattr(x["document"], "page_content"):
-                out.append(x["document"])
-            elif "item" in x and hasattr(x["item"], "page_content"):
-                out.append(x["item"])
-            else:
-                # fallback: stringify if nothing else matches
-                out.append(str(x))
+    return vectorstore
+
+
+def vector_db_exists(persist_dir: str) -> bool:
+    """Check if vector DB exists and has data."""
+    if not os.path.exists(persist_dir):
+        return False
+
+    # Check if directory has content
+    try:
+        contents = os.listdir(persist_dir)
+        return len(contents) > 0
+    except Exception:
+        return False
+
+
+def setup_vector_store(config: dict):
+    """
+    Automatically setup vector store:
+    - If exists and force_rebuild=False: load existing
+    - Otherwise: build from scratch
+    """
+    vs_config = config['vector_store']
+    persist_directory = vs_config['persist_directory']
+    model_name = vs_config['model_name']
+    force_rebuild = vs_config.get('force_rebuild', False)
+
+    embedding_function = HuggingFaceEmbeddings(model_name=model_name)
+
+    # Check if we need to build or can load existing
+    if vector_db_exists(persist_directory) and not force_rebuild:
+        logger.info(f"Loading existing vector store from {persist_directory}")
+        vectorstore = Chroma(
+            persist_directory=persist_directory,
+            embedding_function=embedding_function
+        )
+    else:
+        if force_rebuild:
+            logger.info("Force rebuild enabled. Rebuilding vector store...")
         else:
-            out.append(x)
-    return out
+            logger.info("Vector store not found. Building from scratch...")
+
+        # Run full indexing pipeline and get the vectorstore directly
+        vectorstore = run_index(persist_directory)
+
+    return vectorstore
+
 
 if __name__ == '__main__':
 
+    with open('config.yaml', 'r') as f:
+        config = yaml.safe_load(f)
 
     print("Interpreter:", sys.executable)
     parser = argparse.ArgumentParser(
@@ -95,167 +127,121 @@ if __name__ == '__main__':
         "--mode",
         choices=["index", "demo", "eval", "all"],
         default="demo",
-        help=(
-            "index = build vector DB (preprocess -> ingest -> embed -> vectorstore); "
-        ),
+        help="index = force rebuild vector DB; demo = run query demo"
     )
     parser.add_argument(
         "--persist_dir",
-        default="RAG/ProcessedDocuments/chroma_db",
-        help="Directory for Chroma vector DB."
+        default=None,
+        help="Directory for Chroma vector DB (overrides config)"
     )
 
     args = parser.parse_args()
 
     logger = logging.getLogger("datamite")
     logger.setLevel(logging.INFO)
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s"
+    )
 
+    # Override config if persist_dir provided via CLI
+    if args.persist_dir:
+        config['vector_store']['persist_directory'] = args.persist_dir
+
+    # If mode is "index", force rebuild
     if args.mode in ("index", "all"):
-        run_index(args.persist_dir)
+        config['vector_store']['force_rebuild'] = True
+
+    # ============================================================
+    # AUTOMATIC VECTOR STORE SETUP
+    # ============================================================
+    vectorstore = setup_vector_store(config)
+
+    # Load CSV documents for retriever
+    csv_files = config['csv_files']
+    documents = load_all_csvs_as_documents(csv_files)
+
+    # ============================================================
+    # SETUP ADAPTIVE RETRIEVER
+    # ============================================================
+    retriever_config = config['retriever']
+    retriever = AdaptiveRetriever(
+        vectorstore=vectorstore,
+        k_init=retriever_config['k_init'],
+        pool_cap=retriever_config['pool_cap']
+    )
+
+    # ============================================================
+    # PROCESS QUERY
+    # ============================================================
+    question = "How does Customer Perspective vs Financial Perspective differ in BSC?"
+
+    # Apply spell checking
+    spell_config = config['spell_check']
+    if spell_config['enabled']:
+        query_result = process_user_query(
+            query=question,
+            use_variants=spell_config['use_variants'],
+            custom_terms_path=spell_config['custom_terms_path'],
+            confidence_threshold=spell_config['confidence_threshold']
+        )
+
+        question = query_result['corrected']
+
+        if query_result['needs_correction']:
+            logger.info(f"Original: '{query_result['original']}' → Corrected: '{question}'")
+            logger.info(f"Confidence: {query_result['confidence']:.2f}")
+
+            if spell_config['use_variants']:
+                logger.info(f"Variants: {query_result['variants']}")
+    else:
+        logger.info("Spell checking is disabled")
+
+    print(f"\nFinal query: {question}\n")
+
+    # Get LLM configuration
+    llm_config = config['llm']
+    provider = llm_config['provider']
+    provider_settings = llm_config[provider]
+
+    logger.info(f"Using LLM provider: {provider}")
+
+    # Process query with decomposition
+    payload = process_query_with_decomposition(
+        query=question,
+        retriever=retriever,
+        provider=provider,
+        api_key=provider_settings['api_key'],
+        max_subqs=3,
+        persist_directory=config['vector_store']['persist_directory']
+    )
+
+    print_decomposed_results(payload)
 
     logging.info("Done.")
 
-    '''
-    # 1. Preprocess CSV Files to clean for JSON related issues
-
-    output_dir = "RAG/Content/ProcessedFiles"
-
-    try:
-        processed_files = preprocess_data(output_dir)
-
-        logger.info("\nPreprocessing Summary:")
-        logger.info("=====================")
-        for file_type, file_path in processed_files.items():
-            logger.info(f"{file_type}: {file_path}")
-
-        logger.info("\nTo use these files with KB.py:")
-        logger.info("```python")
-        logger.info("from KB import load_csv_as_documents, load_all_csvs_as_documents")
-        logger.info("")
-        logger.info("# Define processed file paths")
-        logger.info("csv_files = {")
-        for file_type, file_path in processed_files.items():
-            logger.info(f"    '{file_type}': '{file_path}',")
-        logger.info("}")
-        logger.info("")
-        logger.info("# Load all documents")
-        logger.info("all_docs = load_all_csvs_as_documents(csv_files)")
-        logger.info("print(f\"Loaded {len(all_docs)} total documents\")")
-        logger.info("```")
-
-    except Exception as e:
-        logger.error(f"Error preprocessing data: {str(e)}")
-        sys.exit(1)
-
     
-    # 2. Documents Ingestion - converting to Langchain documents
+# --------------
 
-    documents = ingest_documents()
+# Manually calling each step for adaptive retriver just for testing
 
-    if documents:
-        logger.info("\nSample document:")
-        logger.info("-" * 80)
-
-        sample_doc = next((doc for doc in documents if doc.metadata.get("type") == "KPI"), documents[0])
-
-        logger.info("Content:")
-        logger.info(sample_doc.page_content[:500] + "..." if len(sample_doc.page_content) > 500 else sample_doc.page_content)
-        logger.info("-" * 80)
-        logger.info("Metadata:")
-        logger.info(sample_doc.metadata)
-    
-
-    # 3. Analysing if there is a need for text chunking
-
-    with open('RAG/ProcessedDocuments/all_documents.pkl', 'rb') as f:
-        documents = pickle.load(f)
-
-    doc_lengths = defaultdict(list)
-    for doc in documents:
-        doc_type = doc.metadata.get('type', 'Unknown')
-        length = len(doc.page_content)
-        doc_lengths[doc_type].append(length)
-
-    for doc_type, lengths in doc_lengths.items():
-        logger.info(f"\n{doc_type} Documents:")
-        logger.info(f"  Count: {len(lengths)}")
-        logger.info(f"  Average length: {np.mean(lengths):.1f} characters")
-        logger.info(f"  Min length: {min(lengths)} characters")
-        logger.info(f"  Max length: {max(lengths)} characters")
-
-        if lengths:
-            longest_idx = np.argmax(lengths)
-            longest_doc = next((doc for i, doc in enumerate(documents)
-                                if doc.metadata.get('type') == doc_type
-                                and i == longest_idx), None)
-            if longest_doc:
-                logger.info(f"  Longest document name: {longest_doc.metadata.get('name', 'Unknown')}")
-                logger.info(f"  First 200 chars: {longest_doc.page_content[:200]}...")
-
-    # 4. Generating vector embeddings from Langchain documents
-
-    generate_embeddings()
-
-    # 5. Creating vector DB and save embeddings to Vector DB
-
-    vectorstore = create_vectorstore()
-    '''
-
-# Adaptive Retriever
-
-    # Loading vector store
-    persist_directory = "RAG/ProcessedDocuments/chroma_db"
-    model_name = "all-MiniLM-L6-v2"
-    logger.info(f"Loading vector store from {persist_directory}")
-    embedding_function = HuggingFaceEmbeddings(model_name=model_name)
-
-    # Uncomment below if commenting the above vectorDB creations steps and using an existing DB
-    vectorstore = Chroma(persist_directory=persist_directory,
-                         embedding_function=embedding_function)
-
-    csv_files = {
-        'KPIs': 'RAG/Content/ProcessedFiles/clean_KPIs.csv',
-        'Objectives': 'RAG/Content/ProcessedFiles/clean_Objectives.csv',
-        'BSC_families': 'RAG/Content/ProcessedFiles/clean_BSC_families.csv',
-        'BSC_subfamilies': 'RAG/Content/ProcessedFiles/clean_BSC_subfamilies.csv',
-        'Criteria': 'RAG/Content/ProcessedFiles/clean_Criteria.csv'
-    }
-    documents = load_all_csvs_as_documents(csv_files)
-
-retriever = AdaptiveRetriever(
-    vectorstore=vectorstore,
-    k_init=30,
-    pool_cap=20
-)
-
-query = "Explain the relation between Data Price and Information Frequency."
-
-# payload = process_query_with_decomposition(
-#     query=query,
-#     retriever=retriever,
-#     provider="claude",
-#     api_key="",
-#     max_subqs=3,
+# candidates = retriever.step1_wide_retrieval(question)
+# reranked = retriever.step2_rerank(candidates, question)
+# final_docs = retriever.step3_adaptive_selection(reranked, question)
+#
+# docs_for_llm = _unwrap_docs(final_docs)
+# llm_config = config['llm']
+# provider = llm_config['provider']
+# provider_settings = llm_config[provider]
+#
+# llm = build_llm(provider=provider, api_key=provider_settings['api_key'])
+#
+# result = adaptive_rag_with_validation(
+#     query=question,
+#     final_docs=final_docs,
+#     llm=llm,
 #     persist_directory="RAG/ProcessedDocuments/chroma_db"
 # )
 #
-# print_decomposed_results(payload)
-
-candidates = retriever.step1_wide_retrieval(query)
-reranked = retriever.step2_rerank(candidates, query)
-final_docs = retriever.step3_adaptive_selection(reranked, query)
-
-docs_for_llm = _unwrap_docs(final_docs)
-provider = "claude"
-llm = build_llm(provider=provider, api_key="") # Add key here
-
-result = adaptive_rag_with_validation(
-    query=query,
-    final_docs=final_docs,
-    llm=llm,
-    persist_directory="RAG/ProcessedDocuments/chroma_db"
-)
-
-print("\n================= ANSWER =================")
-print(result["answer"])
+# print("\n================= ANSWER =================")
+# print(result["answer"])

@@ -57,8 +57,6 @@ class AdaptiveRetriever:
         import re
         entities = []
 
-        # Extract capitalized words/phrases (your domain entities are capitalized)
-        # Pattern: Capital letter followed by word chars, optionally followed by more capitalized words
         pattern = r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b'
         matches = re.findall(pattern, query)
 
@@ -68,9 +66,28 @@ class AdaptiveRetriever:
                 entities.append(match)
 
         # Also check for "between X and Y" pattern
-        between_pattern = r'between\s+(\w+)\s+and\s+(\w+)'
+        between_pattern = r'between\s+(.+?)\s+and\s+(.+?)(?:\s+(?:in|when|while|for)|[?.!,;]|$)'
         for match in re.finditer(between_pattern, query, re.IGNORECASE):
-            entities.extend([match.group(1), match.group(2)])
+            e1 = match.group(1).strip()
+            e2 = match.group(2).strip()
+            # Clean up common trailing words
+            e1 = re.sub(r'\s+(in|when|while|for)$', '', e1, flags=re.IGNORECASE).strip()
+            e2 = re.sub(r'\s+(in|when|while|for)$', '', e2, flags=re.IGNORECASE).strip()
+            if e1:
+                entities.append(e1)
+            if e2:
+                entities.append(e2)
+
+        vs_pattern = r'\b(.+?)\s+(?:vs\.?|versus)\s+(.+?)(?:\s+(?:in|when|while|for)|[?.!,;]|$)'
+        for match in re.finditer(vs_pattern, query, re.IGNORECASE):
+            e1 = match.group(1).strip()
+            e2 = match.group(2).strip()
+            e1 = re.sub(r'\s+(in|when|while|for)$', '', e1, flags=re.IGNORECASE).strip()
+            e2 = re.sub(r'\s+(in|when|while|for)$', '', e2, flags=re.IGNORECASE).strip()
+            if e1 and len(e1.split()) <= 5:
+                entities.append(e1)
+            if e2 and len(e2.split()) <= 5:
+                entities.append(e2)
 
         # De-duplicate while preserving order
         seen = set()
@@ -80,7 +97,9 @@ class AdaptiveRetriever:
                 seen.add(e.lower())
                 unique_entities.append(e)
 
-        noise_words = {'if', 'when', 'where', 'then', 'else', 'while', 'for'}
+        noise_words = {'if', 'when', 'where', 'then', 'else', 'while', 'for',
+                       'compare', 'explain', 'describe', 'what', 'how', 'why',
+                       'which', 'tell', 'show', 'define'}
         unique_entities = [e for e in unique_entities if e.lower() not in noise_words]
 
         return unique_entities

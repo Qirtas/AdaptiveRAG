@@ -27,9 +27,10 @@ def detect_multi_question(text: str, max_chars: int = 6000, max_parts: int = 5) 
 
     # Clean text for analysis
     cleaned_text = text.strip()
-
-    # Count question marks
     qmarks = cleaned_text.count('?')
+
+    conjunction_pattern = r'\?\s+(and|also|additionally|plus|furthermore)\s+\w'
+    has_conjunction_split = bool(re.search(conjunction_pattern, cleaned_text, re.IGNORECASE))
 
     # Check for bullet/numbered lists
     bullet_patterns = [
@@ -38,23 +39,18 @@ def detect_multi_question(text: str, max_chars: int = 6000, max_parts: int = 5) 
     ]
     has_bullets = any(re.search(pattern, line) for pattern in bullet_patterns for line in cleaned_text.split('\n'))
 
-    # Check for multiple clauses ending with '?' OR semicolon-separated questions
-    # Split by line breaks and semicolons
     clauses = []
     for line in cleaned_text.split('\n'):
         clauses.extend([clause.strip() for clause in line.split(';')])
-
     question_clauses = [clause for clause in clauses if clause.strip().endswith('?')]
 
-    # Also check for semicolon-separated questions (even if they don't all end with '?')
     semicolon_parts = [part.strip() for part in cleaned_text.split(';') if part.strip()]
     has_semicolon_questions = len(semicolon_parts) >= 2 and any('?' in cleaned_text for _ in [1])
 
-    # Exception: single analytical questions (trade-offs, comparisons, etc.)
     analytical_keywords = ['trade-off', 'tradeoff', 'compare', 'comparison', 'versus', ' vs ', ' vs.']
     is_analytical = any(keyword.lower() in cleaned_text.lower() for keyword in analytical_keywords)
 
-    # Decision logic
+    # Decision logic - ADD NEW CONDITION
     needs_decompose = False
     if qmarks >= 2 and not (is_analytical and qmarks == 2):
         needs_decompose = True
@@ -64,8 +60,10 @@ def detect_multi_question(text: str, max_chars: int = 6000, max_parts: int = 5) 
         needs_decompose = True
     elif has_semicolon_questions and len(semicolon_parts) >= 2:
         needs_decompose = True
+    elif has_conjunction_split:  # NEW: Detect "? And/Also/etc." pattern
+        needs_decompose = True
 
-    # Generate candidate splits (best effort)
+    # Generate candidate splits
     if needs_decompose:
         candidate_splits = _generate_candidate_splits(cleaned_text, max_parts)
     else:
@@ -75,17 +73,32 @@ def detect_multi_question(text: str, max_chars: int = 6000, max_parts: int = 5) 
 
     return needs_decompose, candidate_splits
 
-
 def _generate_candidate_splits(text: str, max_parts: int) -> List[str]:
     """
     Generate candidate question splits using simple heuristics.
     """
     splits = []
 
-    # Try splitting by question marks first
+    conjunction_pattern = r'\?\s+(and|also|additionally|plus|furthermore)\s+'
+    if re.search(conjunction_pattern, text, re.IGNORECASE):
+        parts = re.split(conjunction_pattern, text, flags=re.IGNORECASE)
+        # parts will be like: ["How can we...?", "and", "explain the concept..."]
+        # Reconstruct into proper questions
+        current = parts[0].strip()
+        splits.append(current)
+        for i in range(1, len(parts), 2):  # Skip the conjunction words
+            if i + 1 < len(parts):
+                next_part = parts[i + 1].strip()
+                if not next_part.endswith('?'):
+                    next_part += '?'  # Add question mark if missing
+                splits.append(next_part)
+
+        if splits and len(splits) > 1:
+            return splits[:max_parts]
+
     question_parts = [part.strip() + '?' for part in text.split('?') if part.strip()]
     if question_parts and question_parts[-1] == '?':
-        question_parts = question_parts[:-1]  # Remove empty last part
+        question_parts = question_parts[:-1]
 
     if len(question_parts) > 1:
         splits = question_parts
@@ -141,26 +154,36 @@ Input:
     try:
         llm = build_llm(provider=provider, model=model, api_key=api_key)
 
-        # Try different LLM call methods based on the client type
-        if hasattr(llm, 'invoke'):
-            response = llm.invoke(prompt)
-        elif hasattr(llm, 'generate'):
-            response = llm.generate(prompt)
-        elif hasattr(llm, '__call__'):
-            response = llm(prompt)
-        else:
-            raise AttributeError(f"LLM client has no known call method")
+        # Call LLM
+        response = llm.invoke(prompt)
 
-        # Try to parse JSON
-        response_text = response.strip()
+        # Extract text from response object
+        if hasattr(response, 'content'):
+            # For Anthropic/Claude responses with .content attribute
+            if isinstance(response.content, list):
+                response_text = response.content[0].text if hasattr(response.content[0], 'text') else str(
+                    response.content[0])
+            else:
+                response_text = response.content
+        elif hasattr(response, 'text'):
+            # For responses with .text attribute
+            response_text = response.text
+        elif isinstance(response, str):
+            # Already a string
+            response_text = response
+        else:
+            # Fallback: convert to string
+            response_text = str(response)
+
+        response_text = response_text.strip()
 
         # Handle potential markdown code blocks
-        if isinstance(response_text, str) and "```json" in response_text.lower():
+        if "```json" in response_text.lower():
             json_start = response_text.lower().find("```json") + 7
             json_end = response_text.find("```", json_start)
             if json_end != -1:
                 response_text = response_text[json_start:json_end].strip()
-        elif isinstance(response_text, str) and "```" in response_text:
+        elif "```" in response_text:
             json_start = response_text.find("```") + 3
             json_end = response_text.find("```", json_start)
             if json_end != -1:
@@ -169,7 +192,6 @@ Input:
         parsed = json.loads(response_text)
         sub_questions = parsed.get("sub_questions", [])
 
-        # Validate and cap length
         clean_questions = []
         for q in sub_questions[:5]:  # Max 5 questions
             if isinstance(q, str) and q.strip():
@@ -220,7 +242,6 @@ def process_query_with_decomposition(
         }
     """
 
-    # Build LLM once upfront
     llm = build_llm(provider=provider, model=model, api_key=api_key)
 
     # Step 0: Check if decomposition is needed
@@ -249,8 +270,7 @@ def process_query_with_decomposition(
             }]
         }
 
-    # Multi-question detected: use LLM to clean up splits
-    print(f"[Decompose] Multi-question detected, decomposing...")
+    # Multi-question detected: use LLM to decompose
     sub_questions = decompose_to_json(query, llm)
     sub_questions = sub_questions[:max_subqs]  # Cap to max
 
