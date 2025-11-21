@@ -76,12 +76,9 @@ class DeepSeekClient:
 
 class ClaudeClient:
     def __init__(self, model: str | None = None, api_key: str | None = None):
-        import anthropic  # lazy import
-        api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
-            raise RuntimeError("Claude/Anthropic requires ANTHROPIC_API_KEY (or pass api_key to ClaudeClient).")
+        import anthropic
         self.client = anthropic.Anthropic(api_key=api_key)
-        self.model = model or os.getenv("CLAUDE_MODEL", "claude-3-5-sonnet-20241022")
+        self.model = model
 
     def ask_with_docs(self, question: str, docs: List[Any]) -> Dict[str, Any]:
         context = "\n\n".join(f"Document {i+1}: {getattr(d,'page_content',str(d))}" for i,d in enumerate(docs))
@@ -101,24 +98,67 @@ Answer:"""
         )
         return {"answer": msg.content[0].text, "sources": docs}
 
-def build_llm(provider: str | None = None, **overrides) -> LLMClient:
+def build_llm(
+    provider: str | None = None,
+    config: dict | None = None,
+    **overrides,
+) -> LLMClient:
     """
-    Dependency-injection friendly factory.
-    provider: "claude" | "deepseek" (case-insensitive). If None, checks env LLM_PROVIDER, else defaults to "claude".
-    overrides: model=..., api_key=..., base_url=... (DeepSeek only)
+    provider:
+      - "claude", "deepseek", "local"
     """
+    # ---- determine provider ----
+    if provider is None and config is not None:
+        provider = config.get("llm", {}).get("provider")
+
     prov = (provider or os.getenv("LLM_PROVIDER") or "claude").lower()
+
     if prov == "claude":
-        return ClaudeClient(model=overrides.get("model"), api_key=overrides.get("api_key"))
+        cfg_llm = (config or {}).get("llm", {})
+        cfg_claude = cfg_llm.get("claude", {}) if cfg_llm else {}
+
+        cfg_model = cfg_claude.get("model")
+        cfg_key = cfg_claude.get("api_key")
+
+        model = cfg_model
+        api_key = cfg_key
+
+        return ClaudeClient(model=model, api_key=api_key)
+
     if prov == "deepseek":
-        return DeepSeekClient(model_slug=overrides.get("model"),
-                              api_key=overrides.get("api_key"),
-                              base_url=overrides.get("base_url"))
+        cfg_llm = (config or {}).get("llm", {})
+        cfg_deepseek = cfg_llm.get("deepseek", {}) if cfg_llm else {}
+
+        cfg_model = cfg_deepseek.get("model")
+        cfg_key = cfg_deepseek.get("api_key")
+        cfg_base_url = cfg_deepseek.get("base_url")
+
+        model = cfg_model
+        api_key = cfg_key
+        base_url = (
+                overrides.get("base_url")
+                or cfg_base_url
+                or os.getenv("OPENAI_BASE_URL", "https://openrouter.ai/api/v1")
+        )
+
+        return DeepSeekClient(
+            model_slug=model,
+            api_key=api_key,
+            base_url=base_url,
+        )
+
     if prov == "local":
+        cfg_llm = (config or {}).get("llm", {})
+        cfg_local = cfg_llm.get("local", {}) if cfg_llm else {}
+
+        base_url = cfg_local.get("base_url")
+        timeout_s = cfg_local.get("timeout_s")
+        auth_header = cfg_local.get("auth_header")
+
         return LocalHTTPClient(
-            base_url=overrides.get("base_url"),
-            timeout_s=overrides.get("timeout_s"),
-            auth_header=overrides.get("auth_header"),
+            base_url=base_url,
+            timeout_s=timeout_s,
+            auth_header=auth_header,
         )
 
     raise ValueError(f"Unknown provider: {provider}. Use 'claude', 'deepseek', or 'local'.")

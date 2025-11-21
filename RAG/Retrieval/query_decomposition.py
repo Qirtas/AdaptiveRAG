@@ -214,7 +214,8 @@ def process_query_with_decomposition(
         model: str = None,
         api_key: str = None,
         max_subqs: int = 3,
-        persist_directory: str = "RAG/ProcessedDocuments/chroma_db"
+        persist_directory: str = "RAG/ProcessedDocuments/chroma_db",
+        config = None
 ) -> Dict[str, Any]:
     """
     Main orchestration function: detect multi-questions, decompose if needed,
@@ -242,7 +243,7 @@ def process_query_with_decomposition(
         }
     """
 
-    llm = build_llm(provider=provider, model=model, api_key=api_key)
+    llm = build_llm(provider=provider, config=config)
 
     # Step 0: Check if decomposition is needed
     needs_decompose, rough_parts = detect_multi_question(query, max_parts=max_subqs)

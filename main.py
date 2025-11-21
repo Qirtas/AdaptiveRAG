@@ -117,7 +117,7 @@ def setup_vector_store(config: dict):
 if __name__ == '__main__':
 
     with open('config.yaml', 'r') as f:
-        config = yaml.safe_load(f)
+        CONFIG = yaml.safe_load(f)
 
     print("Interpreter:", sys.executable)
     parser = argparse.ArgumentParser(
@@ -146,25 +146,25 @@ if __name__ == '__main__':
 
     # Override config if persist_dir provided via CLI
     if args.persist_dir:
-        config['vector_store']['persist_directory'] = args.persist_dir
+        CONFIG['vector_store']['persist_directory'] = args.persist_dir
 
     # If mode is "index", force rebuild
     if args.mode in ("index", "all"):
-        config['vector_store']['force_rebuild'] = True
+        CONFIG['vector_store']['force_rebuild'] = True
 
     # ============================================================
     # AUTOMATIC VECTOR STORE SETUP
     # ============================================================
-    vectorstore = setup_vector_store(config)
+    vectorstore = setup_vector_store(CONFIG)
 
     # Load CSV documents for retriever
-    csv_files = config['csv_files']
+    csv_files = CONFIG['csv_files']
     documents = load_all_csvs_as_documents(csv_files)
 
     # ============================================================
     # SETUP ADAPTIVE RETRIEVER
     # ============================================================
-    retriever_config = config['retriever']
+    retriever_config = CONFIG['retriever']
     retriever = AdaptiveRetriever(
         vectorstore=vectorstore,
         k_init=retriever_config['k_init'],
@@ -177,7 +177,7 @@ if __name__ == '__main__':
     question = "How does Customer Perspective vs Financial Perspective differ in BSC?"
 
     # Apply spell checking
-    spell_config = config['spell_check']
+    spell_config = CONFIG['spell_check']
     if spell_config['enabled']:
         query_result = process_user_query(
             query=question,
@@ -200,7 +200,7 @@ if __name__ == '__main__':
     print(f"\nFinal query: {question}\n")
 
     # Get LLM configuration
-    llm_config = config['llm']
+    llm_config = CONFIG['llm']
     provider = llm_config['provider']
     provider_settings = llm_config[provider]
 
@@ -213,14 +213,15 @@ if __name__ == '__main__':
         provider=provider,
         api_key=provider_settings['api_key'],
         max_subqs=3,
-        persist_directory=config['vector_store']['persist_directory']
+        persist_directory=CONFIG['vector_store']['persist_directory'],
+        config=CONFIG
     )
 
     print_decomposed_results(payload)
 
     logging.info("Done.")
 
-    
+
 # --------------
 
 # Manually calling each step for adaptive retriver just for testing
